@@ -1,21 +1,35 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Passport Photo Tool</title>
+<title>Passport Photo PRO Ultimate</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@imgly/background-removal/dist/background-removal.min.js"></script>
+
 <style>
-body { text-align:center; font-family:Arial; }
-canvas { margin-top:10px; border:1px solid #000; }
+body { text-align:center; font-family:Arial; background:#f0f0f0; }
+.container { background:white; padding:20px; margin:20px auto; max-width:400px; border-radius:10px; }
+canvas { margin-top:10px; border:1px solid #000; width:100%; }
+button { padding:10px; margin:5px; }
 </style>
 </head>
 
 <body>
 
-<h2>Passport Photo Maker</h2>
+<div class="container">
 
-<input type="file" id="upload" accept="image/*"><br><br>
+<h2>📸 Passport Photo PRO Ultimate</h2>
+
+<input type="file" id="upload"><br><br>
 
 Photos:
-<input type="number" id="count" value="4"><br><br>
+<input type="number" id="count" value="8"><br><br>
+
+Background:
+<select id="bg">
+<option value="white">White</option>
+<option value="blue">Blue</option>
+</select><br><br>
 
 <button onclick="generate()">Generate</button>
 <button onclick="download()">Download</button>
@@ -24,66 +38,124 @@ Photos:
 
 <canvas id="canvas"></canvas>
 
+</div>
+
 <script>
-function generate() {
-  let fileInput = document.getElementById("upload");
+async function generate() {
+
+  let file = document.getElementById("upload").files[0];
   let count = parseInt(document.getElementById("count").value);
+  let bgType = document.getElementById("bg").value;
   let status = document.getElementById("status");
 
-  if (!fileInput.files.length) {
-    alert("Please upload image first");
+  if (!file) {
+    alert("Upload image first");
     return;
   }
 
-  let file = fileInput.files[0];
+  status.innerText = "⏳ Processing...";
 
   let reader = new FileReader();
+  reader.readAsDataURL(file);
 
-  reader.onload = function(e) {
+  reader.onload = async function(e) {
+
     let img = new Image();
+    img.src = e.target.result;
 
-    img.onload = function() {
+    img.onload = async function() {
+
+      // 🔥 Background removal
+      let blob = await removeBackground(img);
+      let cleanImg = new Image();
+      cleanImg.src = URL.createObjectURL(blob);
+
+      await new Promise(r => cleanImg.onload = r);
+
+      // 🔥 Load face detection model
+      await faceapi.nets.tinyFaceDetector.loadFromUri(
+        "https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/"
+      );
+
+      let detection = await faceapi.detectSingleFace(
+        cleanImg,
+        new faceapi.TinyFaceDetectorOptions()
+      );
+
+      let box = detection ? detection.box : {
+        x: cleanImg.width * 0.3,
+        y: cleanImg.height * 0.2,
+        width: cleanImg.width * 0.4,
+        height: cleanImg.height * 0.5
+      };
+
+      // Better framing
+      let sx = box.x - box.width * 0.5;
+      let sy = box.y - box.height * 0.8;
+      let sw = box.width * 2;
+      let sh = box.height * 2;
+
       let canvas = document.getElementById("canvas");
       let ctx = canvas.getContext("2d");
 
-      let pw = 200;
-      let ph = 250;
-      let cols = 2;
-      let rows = Math.ceil(count / cols);
+      // ✅ A4 size
+      let a4_w = 2480;
+      let a4_h = 3508;
 
-      canvas.width = cols * pw;
-      canvas.height = rows * ph;
+      canvas.width = a4_w;
+      canvas.height = a4_h;
+
+      let pw = 413;
+      let ph = 531;
+
+      let cols = Math.floor(a4_w / pw);
+      let rows = Math.floor(a4_h / ph);
+
+      let bgColor = bgType === "blue" ? "#87CEFA" : "#ffffff";
+
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, a4_w, a4_h);
 
       let i = 0;
 
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
+
           if (i >= count) break;
 
-          ctx.drawImage(img, c * pw, r * ph, pw, ph);
+          let x = c * pw;
+          let y = r * ph;
+
+          ctx.fillStyle = bgColor;
+          ctx.fillRect(x, y, pw, ph);
+
+          // 🔥 Draw face-centered image
+          ctx.drawImage(
+            cleanImg,
+            sx, sy, sw, sh,
+            x + 30, y + 30,
+            pw - 60, ph - 60
+          );
+
           i++;
         }
       }
 
-      status.innerText = "✅ Photos generated successfully!";
+      status.innerText = "✅ PRO passport sheet ready!";
     };
-
-    img.src = e.target.result;
   };
-
-  reader.readAsDataURL(file);
 }
 
 function download() {
   let canvas = document.getElementById("canvas");
 
-  if (canvas.width === 0) {
-    alert("Generate photo first");
+  if (!canvas.width) {
+    alert("Generate first");
     return;
   }
 
   let link = document.createElement("a");
-  link.download = "passport.png";
+  link.download = "passport_PRO_A4.png";
   link.href = canvas.toDataURL("image/png");
   link.click();
 }
