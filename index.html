@@ -1,10 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Passport Photo PRO Ultimate</title>
-
-<script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@imgly/background-removal/dist/background-removal.min.js"></script>
+<title>Passport Photo Tool Fast</title>
 
 <style>
 body { text-align:center; font-family:Arial; background:#f0f0f0; }
@@ -18,18 +15,12 @@ button { padding:10px; margin:5px; }
 
 <div class="container">
 
-<h2>📸 Passport Photo PRO Ultimate</h2>
+<h2>📸 Passport Photo Tool</h2>
 
-<input type="file" id="upload"><br><br>
+<input type="file" id="upload" accept="image/*"><br><br>
 
 Photos:
 <input type="number" id="count" value="8"><br><br>
-
-Background:
-<select id="bg">
-<option value="white">White</option>
-<option value="blue">Blue</option>
-</select><br><br>
 
 <button onclick="generate()">Generate</button>
 <button onclick="download()">Download</button>
@@ -41,11 +32,10 @@ Background:
 </div>
 
 <script>
-async function generate() {
+function generate() {
 
   let file = document.getElementById("upload").files[0];
   let count = parseInt(document.getElementById("count").value);
-  let bgType = document.getElementById("bg").value;
   let status = document.getElementById("status");
 
   if (!file) {
@@ -56,62 +46,29 @@ async function generate() {
   status.innerText = "⏳ Processing...";
 
   let reader = new FileReader();
-  reader.readAsDataURL(file);
 
-  reader.onload = async function(e) {
+  reader.onload = function(e) {
 
     let img = new Image();
-    img.src = e.target.result;
 
-    img.onload = async function() {
-
-      // 🔥 Background removal
-      let blob = await removeBackground(img);
-      let cleanImg = new Image();
-      cleanImg.src = URL.createObjectURL(blob);
-
-      await new Promise(r => cleanImg.onload = r);
-
-      // 🔥 Load face detection model
-      await faceapi.nets.tinyFaceDetector.loadFromUri(
-        "https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/"
-      );
-
-      let detection = await faceapi.detectSingleFace(
-        cleanImg,
-        new faceapi.TinyFaceDetectorOptions()
-      );
-
-      let box = detection ? detection.box : {
-        x: cleanImg.width * 0.3,
-        y: cleanImg.height * 0.2,
-        width: cleanImg.width * 0.4,
-        height: cleanImg.height * 0.5
-      };
-
-      // Better framing
-      let sx = box.x - box.width * 0.5;
-      let sy = box.y - box.height * 0.8;
-      let sw = box.width * 2;
-      let sh = box.height * 2;
+    img.onload = function() {
 
       let canvas = document.getElementById("canvas");
       let ctx = canvas.getContext("2d");
 
-      // ✅ A4 size
+      // A4 size
       let a4_w = 2480;
       let a4_h = 3508;
 
       canvas.width = a4_w;
       canvas.height = a4_h;
 
+      // Passport size ratio
       let pw = 413;
       let ph = 531;
 
       let cols = Math.floor(a4_w / pw);
       let rows = Math.floor(a4_h / ph);
-
-      let bgColor = bgType === "blue" ? "#87CEFA" : "#ffffff";
 
       ctx.fillStyle = "#ffffff";
       ctx.fillRect(0, 0, a4_w, a4_h);
@@ -126,24 +83,29 @@ async function generate() {
           let x = c * pw;
           let y = r * ph;
 
-          ctx.fillStyle = bgColor;
-          ctx.fillRect(x, y, pw, ph);
+          // simple center crop
+          let size = Math.min(img.width, img.height);
+          let sx = (img.width - size) / 2;
+          let sy = (img.height - size) / 2;
 
-          // 🔥 Draw face-centered image
           ctx.drawImage(
-            cleanImg,
-            sx, sy, sw, sh,
-            x + 30, y + 30,
-            pw - 60, ph - 60
+            img,
+            sx, sy, size, size,
+            x, y,
+            pw, ph
           );
 
           i++;
         }
       }
 
-      status.innerText = "✅ PRO passport sheet ready!";
+      status.innerText = "✅ Ready (Fast version)";
     };
+
+    img.src = e.target.result;
   };
+
+  reader.readAsDataURL(file);
 }
 
 function download() {
@@ -155,11 +117,11 @@ function download() {
   }
 
   let link = document.createElement("a");
-  link.download = "passport_PRO_A4.png";
+  link.download = "passport_A4_fast.png";
   link.href = canvas.toDataURL("image/png");
   link.click();
 }
 </script>
 
 </body>
-</html>    
+</html>
