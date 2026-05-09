@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Passport Photo Tool</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@imgly/background-removal/dist/background-removal.min.js"></script>
+
+<style>
+body { font-family: Arial; text-align: center; background:#f0f0f0; }
+.container { background:white; padding:20px; margin:20px auto; max-width:500px; border-radius:10px; }
+canvas { width:100%; margin-top:10px; border:1px solid #ccc; }
+button { padding:10px; margin:5px; }
+</style>
+</head>
+
+<body>
+
+<div class="container">
+<h2>📸 Passport Photo Maker</h2>
+
+<input type="file" id="upload"><br><br>
+
+Photos:
+<input type="number" id="count" value="8"><br><br>
+
+<select id="bg">
+<option value="white">White</option>
+<option value="blue">Blue</option>
+</select><br><br>
+
+<button onclick="generate()">Generate</button>
+<button onclick="download()">Download</button>
+
+<canvas id="canvas"></canvas>
+</div>
+
+<script>
+let canvas = document.getElementById("canvas");
+let ctx = canvas.getContext("2d");
+
+async function generate() {
+  let file = document.getElementById("upload").files[0];
+  let count = parseInt(document.getElementById("count").value);
+  let bgType = document.getElementById("bg").value;
+
+  if (!file) return alert("Upload image first");
+
+  let img = new Image();
+  img.src = URL.createObjectURL(file);
+  await new Promise(r => img.onload = r);
+
+  let blob = await removeBackground(img);
+  let cleanImg = new Image();
+  cleanImg.src = URL.createObjectURL(blob);
+  await new Promise(r => cleanImg.onload = r);
+
+  await faceapi.nets.tinyFaceDetector.loadFromUri(
+    "https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/"
+  );
+
+  let detection = await faceapi.detectSingleFace(
+    cleanImg,
+    new faceapi.TinyFaceDetectorOptions()
+  );
+
+  let box = detection ? detection.box : {
+    x: cleanImg.width * 0.25,
+    y: cleanImg.height * 0.2,
+    width: cleanImg.width * 0.5,
+    height: cleanImg.height * 0.6
+  };
+
+  let sx = box.x - box.width * 0.5;
+  let sy = box.y - box.height * 0.8;
+  let sw = box.width * 2;
+  let sh = box.height * 2;
+
+  let pw = 413, ph = 531;
+  let cols = 4;
+  let rows = Math.ceil(count / cols);
+
+  canvas.width = cols * pw;
+  canvas.height = rows * ph;
+
+  let bgColor = bgType === "blue" ? "#87CEFA" : "#ffffff";
+
+  let i = 0;
+
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (i >= count) break;
+
+      ctx.fillStyle = bgColor;
+      ctx.fillRect(c * pw, r * ph, pw, ph);
+
+      ctx.drawImage(cleanImg, sx, sy, sw, sh,
+        c * pw, r * ph, pw, ph);
+
+      i++;
+    }
+  }
+}
+
+function download() {
+  let link = document.createElement("a");
+  link.download = "passport.png";
+  link.href = canvas.toDataURL();
+  link.click();
+}
+</script>
+
+</body>
+</html>
